@@ -1,0 +1,51 @@
+#!/bin/bash
+
+. $HOME/bin/.env
+
+usage() {
+	usageh "file" "Queue video file for processing."
+	option "v tid" "Mandatory. Video track."
+	option "a tid" "Mandatory. Audio track to keep and convert."
+	option "s tid" "Subtitle track to keep. If not specified, all subtitles tracks are removed."
+	option "l lang" "Mandatory. Audio language for display needs."
+	option "d dir" "Export directory. Defaults to 'all'".
+	option "i" "List queue file and exit."
+	exit 1
+}
+
+dir=all
+while getopts $(flg "v:a:s:l:red:i") opt; do
+	case $opt in
+	v)
+		vid=$OPTARG
+		;;
+	a)
+		aid=$OPTARG
+		;;
+	s)
+		sid=$OPTARG
+		;;
+	l)
+		lng=$OPTARG
+		;;
+	d)
+		dir=$OPTARG
+		;;
+	i)
+		cat $FQUEUE ; exit
+		;;
+	esac
+	casel $opt
+done
+
+[[ -z $vid ]] && error "missing video track"
+[[ -z $aid ]] && error "missing audio track"
+[[ -z $dir ]] && error "missing export directory"
+[[ -z $lng ]] && error "missing audio language"
+
+[[ -d "$DIRVID/$dir" ]] || error "export directory does not exist"
+
+shift $((OPTIND - 1))
+(($# == 0)) && log "Missing file name." && exit 1
+
+echo $(basename "$1")'!'$vid'!'$aid'!'$sid'!'$lng'!'$dir >> $FQUEUE
