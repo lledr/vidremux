@@ -132,6 +132,10 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces; \
 			then stream_disposition_forced[$i]=1; fi
 
+	# Additional check on subtitles file size to set forced flag. Slow down process.
+	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i; \
+			then stream_disposition_forced[$i]=1; fi
+
 	# Language specified in title.
 	if valmatch "${stream_tags_title[$i]}" anglais english;          then stream_tags_language[$i]=eng; fi
 	if valmatch "${stream_tags_title[$i]}" français francais french; then stream_tags_language[$i]=fre; fi
