@@ -114,6 +114,7 @@ done
 
 srcstreams "$DIRVID/$1"
 
+# Sanitize.
 for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint_wrappers=1:nokey=1 "$DIRVID/$1") - 1))); do
 	# Exclude explicit attachments.
 	[[ ${stream_codec_type[$i]} == attachment ]] && continue
@@ -128,17 +129,17 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	# Exclude unhandled bitmap subs.
 	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub; then continue; fi
 
-	# Correctly restore forced subtitles.
+	# Restore forced subtitles.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces; \
-			then stream_disposition_forced[$i]=1; fi
-
-	# Additional check on subtitles file size to set forced flag. Slow down process.
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i; \
 			then stream_disposition_forced[$i]=1; fi
 
 	# Language specified in title.
 	if valmatch "${stream_tags_title[$i]}" anglais english;          then stream_tags_language[$i]=eng; fi
 	if valmatch "${stream_tags_title[$i]}" français francais french; then stream_tags_language[$i]=fre; fi
+
+	# Additional check on subtitles file size to set forced flag. Slow down process.
+	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i; \
+			then stream_disposition_forced[$i]=1; fi
 
 	gmd[$i]=${stream_codec_type[$i]:0:1}:${stream_tags_language[$i]}:${stream_disposition_default[$i]}:${stream_disposition_forced[$i]}
 done
