@@ -24,7 +24,6 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 	[[ -f "$DIRVID/$flo" ]] || continue
 	log "File $flo found. Processing."
 
-	#unset nsr aac esb frc sbc sbe sbn srd aue
 	unset nsr aac frc sbe sbn srd aue
 
 	# For mkvmerge.
