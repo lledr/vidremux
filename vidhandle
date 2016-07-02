@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $HOME/bin/.env
+. $HOME/bin/.env.vid
 shopt -s extglob
 
 matchmsk() {
@@ -86,7 +86,7 @@ for f in $DIRVID/.vid.kids.*; do
 	if [[ -f $f ]]; then
 		log "Kids handler. Update settings."
 		
-		CFGRX="$HOME/bin/.remux.kids.cfg"
+		CFGRX="$CFGRXK"
 		dir=kids
 
 		$RM $f

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $HOME/bin/.env
+. $HOME/bin/.env.vid
 
 usage() {
 	usageh "" "Reads queue file and processes remuxing files sequentially."
@@ -79,7 +79,7 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 	
 	log "Wait for end of Plex scan tasks."
 	
-	while $SLEEP 15; [[ -n $($PIDOF "Plex Media Scanner") ]]; do :; done
+	while $SLEEP $TIMEPL; [[ -n $($PIDOF "Plex Media Scanner") ]]; do :; done
 	
 	log "Finished processing file."
 	$EXEC $0 "$@"
