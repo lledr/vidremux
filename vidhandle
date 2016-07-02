@@ -80,7 +80,7 @@ exec 3< /tmp
 # Exclusive lock on /tmp dir.
 flock 3
 
-log "Handling file $1 ..."
+log "Handling file: $1"
 
 dir=all
 for f in $DIRVID/.vid.kids.*; do 
@@ -139,7 +139,7 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	if valmatch "${stream_tags_title[$i]}" français francais french; then stream_tags_language[$i]=fre; fi
 
 	# Additional check on subtitles file size to set forced flag. Slow down process.
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i; \
+	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i "${stream_codec_name[$i]}"; \
 			then stream_disposition_forced[$i]=1; fi
 
 	gmd[$i]=${stream_codec_type[$i]:0:1}:${stream_tags_language[$i]}:${stream_disposition_default[$i]}:${stream_disposition_forced[$i]}
