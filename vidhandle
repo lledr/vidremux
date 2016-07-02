@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $HOME/bin/.env.vid
+. $(dirname $0)/.env.vid
 shopt -s extglob
 
 matchmsk() {
@@ -74,7 +74,8 @@ exec 3< /tmp
 # Silently ignore hidden files.
 [[ ${1:0:1} == '.' ]] && exit 0
 
-[[ -n ${1%%*@(.mkv|.avi|.mp4)} ]] && log "Unrecognized file $1. Skip." ERR && exit 1
+# Silently ignore unhandled files.
+[[ -n ${1%%*@(.mkv|.avi|.mp4)} ]] && exit 0
 
 # Exclusive lock on /tmp dir.
 flock 3
@@ -127,7 +128,7 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 			then continue; fi
 
 	# Exclude unhandled bitmap subs.
-	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub; then continue; fi
+	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle; then continue; fi
 
 	# Restore forced subtitles.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces; \

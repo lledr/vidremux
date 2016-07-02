@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $HOME/bin/.env.vid
+. $(dirname $0)/.env.vid
 
 usage() {
 	usageh "" "Reads queue file and processes remuxing files sequentially."
@@ -24,7 +24,8 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 	[[ -f "$DIRVID/$flo" ]] || continue
 	log "File $flo found. Processing."
 
-	unset nsr aac esb frc sbc sbe sbn srd aue
+	#unset nsr aac esb frc sbc sbe sbn srd aue
+	unset nsr aac frc sbe sbn srd aue
 
 	# For mkvmerge.
 	fld="$(echo $flo | tr -cd '[:print:]')"
@@ -34,19 +35,17 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 
 	srcstreams "$DIRVID/.$fld.ori"
 
-	[[ ${stream_channels[$aid]} -le 2 ]]               && log "Audio is not surround." && nsr=1
-	[[ ${stream_codec_name[$aid]} == aac ]]            && log "Audio codec is AAC."    && nce=1
-	[[ ${stream_codec_name[$aid]} == mp3 ]]            && log "Audio codec is MP3."    && nce=1
-	[[ -n $sid && ${stream_codec_name[$sid]} != srt ]] && log "Subtitles are not SRT." && esb=1 
+	[[ ${stream_channels[$aid]} -le 2 ]]                  && log "Audio is not surround." && nsr=1
+	[[ ${stream_codec_name[$aid]} == aac ]]               && log "Audio codec is AAC."    && nce=1
+	[[ ${stream_codec_name[$aid]} == mp3 ]]               && log "Audio codec is MP3."    && nce=1
 
 	# Dynamic variables based on static ones.
 	[[ $lng == fre ]] && frc=true || frc=false
 
-	[[ -n $sid && -z $esb ]] && sbc=1
-	[[ -n $esb ]]            && sbe=1 || log "No subtitles reencoding."
+	[[ -z $nsr || -z $nce ]] && aue=1 || log "No audio reencoding."
+	[[ -n $sid ]]            && sbe=1 || log "No subtitles reencoding."
 	[[ -z $sid ]]            && sbn=1
 	[[ -z $nsr ]]            && srd=1
-	[[ -z $nsr || -z $nce ]] && aue=1 || log "No audio reencoding."
 
 	if [[ -n $aue || -n $sbe ]]; then
 		log "Reencoding streams."
@@ -64,8 +63,8 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 
 	log "Remuxing MKV file."
 
-	$MKVMRG --track-order 0:$vid${aue:+,1:0},0:$aid${sbc:+,0:$sid}${sbe:+,$((sbe + aue)):0} --disable-track-statistics-tags -o "$DIRVID/.$fld.mkv" \
-		-d $vid -a $aid ${sbe:+-S} ${sbn:+-S} ${sbc:+-s $sid} --no-chapters --no-global-tags --language $vid:$lng --default-track $vid:true --forced-track $vid:false --track-name $vid: --language $aid:$lng --default-track $aid:true --forced-track $aid:false --track-name $aid: ${sbc:+--language $sid:fre --default-track $sid:true --forced-track $sid:$frc --track-name $sid:} "$DIRVID/.$fld.ori" \
+	$MKVMRG --track-order 0:$vid${aue:+,1:0},0:$aid${sbe:+,$((sbe + aue)):0} --disable-track-statistics-tags -o "$DIRVID/.$fld.mkv" \
+		-d $vid -a $aid -S -B -M --no-chapters --no-global-tags --language $vid:$lng --default-track $vid:true --forced-track $vid:false --track-name $vid: --language $aid:$lng --default-track $aid:true --forced-track $aid:false --track-name $aid: "$DIRVID/.$fld.ori" \
 		${aue:+--aac-is-sbr 0:0 --sync 0:${stream_start_pts[$aid]} --language 0:$lng --default-track 0:false --forced-track 0:false "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
 		${sbe:+--language 0:fre --sync 0:${stream_start_pts[$sid]} --sub-charset 0:UTF8 --default-track 0:true --forced-track 0:$frc "$DIRVID/.$fld.srt"}
 

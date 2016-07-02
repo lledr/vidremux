@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. $HOME/bin/.env.vid
+. $(dirname $0)/.env.vid
 
 usage() {
 	usageh "file" "Queue video file for processing."
