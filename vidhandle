@@ -24,7 +24,7 @@ matchmsk() {
 				# On specified track, or config entry default.
 				prm[l]=${stream_tags_language[$tid]}
 
-				[[ ! ${prm[l]} || ${prm[l]} == und ]] && prm[l]=$ldf
+				[[ ! ${prm[l]} || valmatchst ${prm[l]} und unknown ]] && prm[l]=$ldf
 			fi
 
 			# Matched. Disable track of further check.
