@@ -24,7 +24,7 @@ matchmsk() {
 				# On specified track, or config entry default.
 				prm[l]=${stream_tags_language[$tid]}
 
-				[[ ! ${prm[l]} || valmatchst ${prm[l]} und unknown ]] && prm[l]=$ldf
+				if valmatchstt "${prm[l]}" "" und unknown; then prm[l]=$ldf; fi
 			fi
 
 			# Matched. Disable track of further check.
@@ -69,13 +69,13 @@ shift $((OPTIND - 1))
 exec &>> $LVID
 exec 3< /tmp
 
-[[ -z $1 ]] && log "No file specified. Skip." ERR && exit 1
+[[ ! $1 ]] && log "No file specified. Skip." ERR && exit 1
 
 # Silently ignore hidden files.
 [[ ${1:0:1} == '.' ]] && exit 0
 
 # Silently ignore unhandled files.
-[[ -n ${1%%*@(.mkv|.avi|.mp4)} ]] && exit 0
+[[ ${1%%*@(.mkv|.avi|.mp4)} ]] && exit 0
 
 # Exclusive lock on /tmp dir.
 flock 3
@@ -124,7 +124,7 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	[[ ${stream_disposition_attached_pic[$i]} == 1 ]] && continue
 
 	# Exclude some identified useless subs (e.g. SDH - Subtitles for the Deaf and Hard of hearing).
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" sdh song songs chanson chansons; \
+	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" sdh song songs commentary chanson chansons commentaires; \
 			then continue; fi
 
 	# Exclude unhandled bitmap subs.
