@@ -34,22 +34,24 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 
 	srcstreams "$DIRVID/.$fld.ori"
 
-	[[ ${stream_channels[$aid]} -le 2 ]]                  && log "Audio is not surround." && nsr=1
-	[[ ${stream_codec_name[$aid]} == aac ]]               && log "Audio codec is AAC."    && nce=1
-	[[ ${stream_codec_name[$aid]} == mp3 ]]               && log "Audio codec is MP3."    && nce=1
+	[[ ${stream_channels[$aid]} -le 2 ]]    && log "Audio is not surround." && nsr=1
+	[[ ${stream_codec_name[$aid]} == aac ]] && log "Audio codec is AAC."    && nce=1
+	[[ ${stream_codec_name[$aid]} == mp3 ]] && log "Audio codec is MP3."    && nce=1
+
+	[[ $sid ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
 
 	# Dynamic variables based on static ones.
 	[[ $lng == fre ]] && frc=true || frc=false
 
 	[[ ! $nsr || ! $nce ]] && aue=1 || log "No audio reencoding."
-	[[ $sid ]]             && sbe=1 || log "No subtitles reencoding."
+	[[ $sid ]]             && sbe=1 || log "No subtitles."
 	[[ ! $sid ]]           && sbn=1
 	[[ ! $nsr ]]           && srd=1
 
 	if [[ $aue || $sbe ]]; then
 		log "Reencoding streams."
 
-		$FFMPG -i "$DIRVID/.$fld.ori" \
+		$FFMPG ${sbe:+-sub_charenc $enc} -i "$DIRVID/.$fld.ori" \
 			${aue:+-map 0:$aid ${srd:+$FFMPG_SRD} ${FFMPG_ENC[$AUD]} "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
 			${sbe:+-map 0:$sid -c:s srt "$DIRVID/.$fld.srt"}
 
