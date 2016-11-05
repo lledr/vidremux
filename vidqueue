@@ -40,12 +40,11 @@ done
 
 [[ ! $vid ]] && error "missing video track"
 [[ ! $aid ]] && error "missing audio track"
-[[ ! $dir ]] && error "missing export directory"
 [[ ! $lng ]] && error "missing audio language"
 
 [[ -d "$DIRVID/$dir" ]] || error "export directory does not exist"
 
 shift $((OPTIND - 1))
-(($# == 0)) && log "Missing file name." && exit 1
+(($# == 0)) && error "missing file name"
 
 echo $(basename "$1")'!'$vid'!'$aid'!'$sid'!'$lng'!'$dir >> $FQUEUE

@@ -1,0 +1,110 @@
+#!/bin/bash
+
+. $(dirname $0)/.env.vid
+
+usage() {
+	usageh "file" "Process reencoding and merging from specified file name."
+        option "v tid" "Mandatory. Video track."
+        option "a tid" "Mandatory. Audio track."
+        option "s tid" "Subtitle track."
+        option "l lang" "Mandatory. Audio language."
+        option "d dir" "Export directory. Defaults to 'all'"
+        option "r" "Reencode only. No merge nor file purge."
+        option "m" "Merge only. Files (ori, aac and srt) are assumed to be exposed as if they have been reencoded."
+	exit 1
+}
+
+dir=all
+while getopts $(flg "v:a:s:l:d:rm") opt; do
+        case $opt in
+        v)
+                vid=$OPTARG
+                ;;
+        a)
+                aid=$OPTARG
+                ;;
+        s)
+                sid=$OPTARG
+                ;;
+        l)
+                lng=$OPTARG
+                ;;
+        d)
+                dir=$OPTARG
+                ;;
+	m)
+		mge=1
+		;;
+	r)
+		rcd=1
+		;;
+        esac
+        casel $opt
+done
+
+[[ ! $vid ]] && error "missing video track"
+[[ ! $aid ]] && error "missing audio track"
+[[ ! $lng ]] && error "missing language"
+
+[[ -d "$DIRVID/$dir" ]] || error "export directory does not exist"
+
+shift $((OPTIND - 1))
+(($# == 0)) && error "missing file name"
+
+exec &>> $LVID
+
+flo=$(basename "$1")
+
+# For mkvmerge.
+fld="$(echo $flo | tr -cd '[:print:]')"
+fld=${fld%.*}
+
+[[ -f "$DIRVID/$flo" ]] && $MV "$DIRVID/$flo" "$DIRVID/.$fld.ori"
+
+[[ -f "$DIRVID/.$fld.ori" ]] || logerr "File $flo could not be found."
+srcstreams "$DIRVID/.$fld.ori"
+
+[[ ${stream_channels[$aid]} -le 2 ]]    && log "Audio is not surround." && nsr=1
+[[ ${stream_codec_name[$aid]} == aac ]] && log "Audio codec is AAC."    && nce=1
+[[ ${stream_codec_name[$aid]} == mp3 ]] && log "Audio codec is MP3."    && nce=1
+
+# Dynamic variables based on static ones.
+[[ $lng == fre ]] && frc=true || frc=false
+
+[[ ! $nsr || ! $nce ]] && aue=1 || log "No audio file."
+[[ $sid ]]             && sbe=1 || log "No subtitles file."
+[[ ! $sid ]]           && sbn=1
+[[ ! $nsr ]]           && srd=1
+
+if [[ ! $mge ]] && [[ $aue || $sbe ]]; then
+	log "Reencoding streams."
+
+	$FFMPG ${sbe:+-sub_charenc $enc} -i "$DIRVID/.$fld.ori" \
+		${aue:+-map 0:$aid ${srd:+$FFMPG_SRD} ${FFMPG_ENC[$AUD]} "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
+		${sbe:+-map 0:$sid -c:s srt "$DIRVID/.$fld.srt"}
+
+	[[ $? -ne 0 ]] && logerr "Could not properly reencode streams. Skip."
+
+	[[ $sbe ]] && $SED -i 's/<\/\?font[^>]*>//g;s/\r$//' "$DIRVID/.$fld.srt"
+
+	log "Streams reencoded."
+fi
+
+if [[ ! $rcd ]]; then
+	log "Remuxing MKV file."
+
+	$MKVMRG --track-order 0:$vid${aue:+,1:0},0:$aid${sbe:+,$((sbe + aue)):0} --disable-track-statistics-tags -o "$DIRVID/.$fld.mkv" \
+		-d $vid -a $aid -S -B -M --no-chapters --no-global-tags --language $vid:$lng --default-track $vid:true --forced-track $vid:false --track-name $vid: --language $aid:$lng --default-track $aid:true --forced-track $aid:false --track-name $aid: "$DIRVID/.$fld.ori" \
+		${aue:+--aac-is-sbr 0:0 --sync 0:${stream_start_pts[$aid]} --language 0:$lng --default-track 0:false --forced-track 0:false "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
+		${sbe:+--language 0:fre --sync 0:${stream_start_pts[$sid]} --sub-charset 0:UTF8 --default-track 0:true --forced-track 0:$frc "$DIRVID/.$fld.srt"}
+
+	[[ $? -ne 0 ]] && logerr "Could not properly remux MKV file. Skip."
+
+	log "MKV file remuxed."
+	log "Move file to $dir and clean."
+
+	$MV "$DIRVID/.$fld.mkv" "$DIRVID/$dir/$fld.mkv"
+	$RM "$DIRVID/.$fld."*
+fi
+
+log "Finished processing file."

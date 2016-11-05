@@ -12,7 +12,7 @@ matchmsk() {
 			unset lmd[$tid]
 		fi
 
-		# Mandatory mask. Must match on some unique track.
+		# Mandatory mask. Must match on one unique track.
 		if [[ $mdt == 1 && ! ${lmd[$tid]##${1%%'#'*}} ]]; then
 			# Record track ID.
 			if [[ ! ${1%%*'#'*t*} ]]; then
@@ -22,9 +22,7 @@ matchmsk() {
 			# Record language.
 			if [[ ! ${1%%*'#'*l*} ]]; then
 				# On specified track, or config entry default.
-				prm[l]=${stream_tags_language[$tid]}
-
-				if valmatchstt "${prm[l]}" "" und unknown; then prm[l]=$ldf; fi
+				[[ ${stream_tags_language[$tid]} == und ]] && prm[l]=$ldf || prm[l]=${stream_tags_language[$tid]}
 			fi
 
 			# Matched. Disable track of further check.
@@ -55,21 +53,15 @@ usage() {
         exit 1
 }
 
-while getopts $(flg "d") opt; do
-        case $opt in
-        d)
-		dry=1
-                ;;
-        esac
+while getopts $(flg) opt; do
         casel $opt
 done
 
 shift $((OPTIND - 1))
+[[ ! $1 ]] && error "no file specified"
 
 exec &>> $LVID
 exec 3< /tmp
-
-[[ ! $1 ]] && log "No file specified. Skip." ERR && exit 1
 
 # Silently ignore hidden files.
 [[ ${1:0:1} == '.' ]] && exit 0
@@ -101,7 +93,7 @@ for f in $DIRVID/.vid.mov.*; do
 		log "Mov handler. Just move, no wait."
 		
 		$MV "$DIRVID/$1" "$DIRVID/$dir/$1"
-		[[ $? -ne 0 ]] && log "Unable to move. Abort." ERR && exit 1
+		[[ $? -ne 0 ]] && logerr "Unable to move file to $dir. Abort."
 
 		log "File moved."
 
@@ -128,7 +120,7 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 			then continue; fi
 
 	# Exclude unhandled bitmap subs.
-	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle; then continue; fi
+	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle dvd_subtitle; then continue; fi
 
 	# Restore forced subtitles.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces; \
@@ -137,6 +129,9 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	# Language specified in title.
 	if valmatch "${stream_tags_title[$i]}" anglais english;          then stream_tags_language[$i]=eng; fi
 	if valmatch "${stream_tags_title[$i]}" français francais french; then stream_tags_language[$i]=fre; fi
+
+	# Regroup esoteric language non-values.
+	if valmatchstt "x${stream_tags_language[$i]}" "x" "xunknown"; then stream_tags_language[$i]=und; fi
 
 	# Additional check on subtitles file size to set forced flag. Slow down process.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i "${stream_codec_name[$i]}"; \
@@ -160,5 +155,4 @@ while IFS='%' read -r cfg ldf; do
 	fi
 done < $CFGRX
 
-log "Fail to match. Abort." ERR
-exit 1
+logerr "Fail to match. Abort."
