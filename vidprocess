@@ -68,6 +68,8 @@ srcstreams "$DIRVID/.$fld.ori"
 [[ ${stream_codec_name[$aid]} == aac ]] && log "Audio codec is AAC."    && nce=1
 [[ ${stream_codec_name[$aid]} == mp3 ]] && log "Audio codec is MP3."    && nce=1
 
+[[ $sid ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
+
 # Dynamic variables based on static ones.
 [[ $lng == fre ]] && frc=true || frc=false
 
