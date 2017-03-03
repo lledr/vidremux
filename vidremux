@@ -21,10 +21,6 @@ while IFS='!' read -r flo vid aid sid lng dir; do
 	$VPROC -v $vid -a $aid ${sid:+-s $sid} -l $lng -d $dir "$flo"
 	[[ $? -ne 0 ]] && $EXEC $0 "$@"
 
-	log "Wait for end of Plex scan tasks."
-	
-	while $SLEEP $TIMEPL; [[ $($PIDOF "Plex Media Scanner") ]]; do :; done
-	
 	log "Finished processing file."
 	$EXEC $0 "$@"
 done < $FQUEUE

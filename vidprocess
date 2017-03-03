@@ -64,18 +64,16 @@ fld=${fld%.*}
 [[ -f "$DIRVID/.$fld.ori" ]] || logerr "File $flo could not be found."
 srcstreams "$DIRVID/.$fld.ori"
 
-[[ ${stream_channels[$aid]} -le 2 ]]    && log "Audio is not surround." && nsr=1
-[[ ${stream_codec_name[$aid]} == aac ]] && log "Audio codec is AAC."    && nce=1
-[[ ${stream_codec_name[$aid]} == mp3 ]] && log "Audio codec is MP3."    && nce=1
+[[ ${stream_channels[$aid]} -le 2 ]] && log "Audio is not surround." && nsr=1
+valmatchstt "${stream_codec_name[$aid]}" aac mp3 && log "Audio codec is ${stream_codec_name[$aid]^^}." && nce=1
 
-[[ $sid ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
+[[ ! $mge && $sid ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
 
 # Dynamic variables based on static ones.
 [[ $lng == fre ]] && frc=true || frc=false
 
 [[ ! $nsr || ! $nce ]] && aue=1 || log "No audio file."
 [[ $sid ]]             && sbe=1 || log "No subtitles file."
-[[ ! $sid ]]           && sbn=1
 [[ ! $nsr ]]           && srd=1
 
 if [[ ! $mge ]] && [[ $aue || $sbe ]]; then

@@ -20,9 +20,8 @@ matchmsk() {
 			fi
 
 			# Record language.
-			if [[ ! ${1%%*'#'*l*} ]]; then
-				# On specified track, or config entry default.
-				[[ ${stream_tags_language[$tid]} == und ]] && prm[l]=$ldf || prm[l]=${stream_tags_language[$tid]}
+			if [[ ! ${1%%*'#'*l*} && ${stream_tags_language[$tid]} != und ]]; then
+				prm[l]=${stream_tags_language[$tid]}
 			fi
 
 			# Matched. Disable track of further check.
@@ -39,7 +38,7 @@ match() {
 	local lmd msk i
 
 	for i in ${!gmd[@]}; do lmd[$i]=${gmd[$i]}; done
-	for msk in $1; do if ! matchmsk $msk $2; then return 1; fi; done
+	for msk in $1; do if ! matchmsk $msk; then return 1; fi; done
 
 	# Not all tracks matched. Try again.
 	[[ ${!lmd[@]} ]] && return 2
@@ -75,6 +74,17 @@ flock 3
 log "Handling file: $1"
 
 dir=all
+for f in $DIRVID/.vid.nop.*; do
+	if [[ -f $f ]]; then
+		log "No-op handler. Do nothing."
+		
+		$RM $f
+		num=${f##*'.'}
+
+		[[ $num -gt 1 ]] && $TOUCH $DIRVID/.vid.nop.$((num - 1))
+		exit 0
+	fi
+done
 for f in $DIRVID/.vid.kids.*; do 
 	if [[ -f $f ]]; then
 		log "Kids handler. Update settings."
@@ -110,32 +120,29 @@ srcstreams "$DIRVID/$1"
 # Sanitize.
 for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint_wrappers=1:nokey=1 "$DIRVID/$1") - 1))); do
 	# Exclude explicit attachments.
-	[[ ${stream_codec_type[$i]} == attachment ]] && continue
+	valmatchstt "${stream_codec_type[$i]}" attachment data && continue
 
 	# Exclude attached pics, seen as video streams.
 	[[ ${stream_disposition_attached_pic[$i]} == 1 ]] && continue
 
 	# Exclude some identified useless subs (e.g. SDH - Subtitles for the Deaf and Hard of hearing).
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" sdh song songs commentary chanson chansons commentaires; \
-			then continue; fi
+	[[ ${stream_codec_type[$i]} == subtitle ]] && valmatch "${stream_tags_title[$i]}" sdh song songs commentary chanson chansons commentaires && continue
 
 	# Exclude unhandled bitmap subs.
-	if valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle dvd_subtitle; then continue; fi
+	valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle dvd_subtitle && continue
 
 	# Restore forced subtitles.
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces; \
-			then stream_disposition_forced[$i]=1; fi
+	[[ ${stream_codec_type[$i]} == subtitle ]] && valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces && stream_disposition_forced[$i]=1
 
 	# Language specified in title.
-	if valmatch "${stream_tags_title[$i]}" anglais english;          then stream_tags_language[$i]=eng; fi
-	if valmatch "${stream_tags_title[$i]}" français francais french; then stream_tags_language[$i]=fre; fi
+	valmatch "${stream_tags_title[$i]}" anglais english eng en          && stream_tags_language[$i]=eng
+	valmatch "${stream_tags_title[$i]}" français francais french fre fr && stream_tags_language[$i]=fre
 
 	# Regroup esoteric language non-values.
-	if valmatchstt "x${stream_tags_language[$i]}" "x" "xunknown"; then stream_tags_language[$i]=und; fi
+	valmatchstt "x${stream_tags_language[$i]}" "x" "xunknown" && stream_tags_language[$i]=und
 
 	# Additional check on subtitles file size to set forced flag. Slow down process.
-	[[ ${stream_codec_type[$i]} == subtitle ]] && if chkforced "$DIRVID/$1" $i "${stream_codec_name[$i]}"; \
-			then stream_disposition_forced[$i]=1; fi
+	[[ ${stream_codec_type[$i]} == subtitle ]] && chkforced "$DIRVID/$1" $i "${stream_codec_name[$i]}" && stream_disposition_forced[$i]=1
 
 	gmd[$i]=${stream_codec_type[$i]:0:1}:${stream_tags_language[$i]}:${stream_disposition_default[$i]}:${stream_disposition_forced[$i]}
 done
@@ -145,8 +152,8 @@ log "Media signature: $(for i in ${!gmd[@]}; do echo -n "$i=${gmd[$i]} "; done)"
 while IFS='%' read -r cfg ldf; do
 	[[ ! $cfg || ${cfg:0:1} == '#' ]] && continue
 
-	declare -A prm=()
-	if match "$cfg" $ldf; then
+	declare -A prm=([l]=$ldf)
+	if match "$cfg"; then
 		log "Successful match with $cfg"
 		log "Match gives: $(for i in ${!prm[@]}; do echo -n "$i=${prm[$i]} "; done)"
 		
