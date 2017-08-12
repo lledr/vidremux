@@ -56,8 +56,7 @@ exec &>> $LVID
 flo=$(basename "$1")
 
 # For mkvmerge.
-fld="$(echo $flo | tr -cd '[:print:]')"
-fld=${fld%.*}
+fld=$(echo ${flo%.*} | tr -cd '[:print:]' | tr -s ' ' '.')
 
 [[ -f "$DIRVID/$flo" ]] && $MV "$DIRVID/$flo" "$DIRVID/.$fld.ori"
 
@@ -72,8 +71,8 @@ valmatchstt "${stream_codec_name[$aid]}" aac mp3 && log "Audio codec is ${stream
 # Dynamic variables based on static ones.
 [[ $lng == fre ]] && frc=true || frc=false
 
-[[ ! $nsr || ! $nce ]] && aue=1 || log "No audio file."
-[[ $sid ]]             && sbe=1 || log "No subtitles file."
+[[ ! $nsr || ! $nce ]] && aue=1 || log "No audio file to be generated."
+[[ $sid ]]             && sbe=1 || log "No subtitles file to be generated."
 [[ ! $nsr ]]           && srd=1
 
 if [[ ! $mge ]] && [[ $aue || $sbe ]]; then
