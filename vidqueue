@@ -5,9 +5,9 @@
 usage() {
 	usageh "file" "Queue video file for processing."
 	option "v tid" "Mandatory. Video track."
-	option "a tid" "Mandatory. Audio track to keep and convert."
-	option "s tid" "Subtitle track to keep. If not specified, all subtitles tracks are removed."
-	option "l lang" "Mandatory. Audio language for display needs."
+	option "a tid" "Mandatory. Audio track."
+	option "s tid" "Subtitle track if any."
+	option "l lang" "Audio language - mandatory."
 	option "d dir" "Export directory. Defaults to 'all'".
 	option "i" "List queue file and exit."
 	exit 1

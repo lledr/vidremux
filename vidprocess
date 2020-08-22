@@ -4,13 +4,14 @@
 
 usage() {
 	usageh "file" "Process reencoding and merging from specified file name."
-        option "v tid" "Mandatory. Video track."
-        option "a tid" "Mandatory. Audio track."
+        option "v tid" "Video track - mandatory."
+        option "a tid" "Audio track - mandatory."
         option "s tid" "Subtitle track."
-        option "l lang" "Mandatory. Audio language."
-        option "d dir" "Export directory. Defaults to 'all'"
-        option "r" "Reencode only. No merge nor file purge."
-        option "m" "Merge only. Files (ori, aac and srt) are assumed to be exposed as if they have been reencoded."
+        option "l lang" "Audio language - mandatory."
+        option "d dir" "Export directory. Defaults to 'all'."
+        option "e" "Encode and add a two-channel AAC audio track (if not already present)."
+        option "r" "Reencode stage only."
+        option "m" "Merge stage only. Files (ori, aac and srt) are assumed to be exposed as if they have been reencoded."
 	exit 1
 }
 
@@ -32,6 +33,9 @@ while getopts $(flg "v:a:s:l:d:rm") opt; do
         d)
                 dir=$OPTARG
                 ;;
+	e)
+		aue=1
+		;;
 	m)
 		mge=1
 		;;
@@ -66,25 +70,29 @@ srcstreams "$DIRVID/.$fld.ori"
 [[ ${stream_channels[$aid]} -le 2 ]] && log "Audio is not surround." && nsr=1
 valmatchstt "${stream_codec_name[$aid]}" aac mp3 && log "Audio codec is ${stream_codec_name[$aid]^^}." && nce=1
 
-[[ ! $mge && $sid ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
+if [[ $sid ]]; then
+	valmatchstt "${stream_codec_name[$sid]}" h264 subrip ass && stx=1 || sbn=1
+	log "Subtitles is${stx:+ text}${sbn:+ binary}."
+fi
+
+[[ ! $mge && $stx ]] && enc=$(getenc "$DIRVID/.$fld.ori" $sid) && log "Subtitles encoding is $enc."
 
 # Dynamic variables based on static ones.
 [[ $lng == fre ]] && frc=true || frc=false
 
-[[ ! $nsr || ! $nce ]] && aue=1 || log "No audio file to be generated."
-[[ $sid ]]             && sbe=1 || log "No subtitles file to be generated."
-[[ ! $nsr ]]           && srd=1
+[[ $nsr && $nce && $aue ]] && unset aue && log "Two-way basic audio track already present, not reencoding a new one."
+[[ ! $nsr ]]               && srd=1
 
-if [[ ! $mge ]] && [[ $aue || $sbe ]]; then
-	log "Reencoding streams."
+if [[ ! $mge ]] && [[ $aue || $stx ]]; then
+	log "Generating streams:${aue:+ audio}${stx:+ subtitles}."
 
-	$FFMPG ${sbe:+-sub_charenc $enc} -i "$DIRVID/.$fld.ori" \
+	$FFMPG ${stx:+-sub_charenc $enc} -i "$DIRVID/.$fld.ori" \
 		${aue:+-map 0:$aid ${srd:+$FFMPG_SRD} ${FFMPG_ENC[$AUD]} "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
-		${sbe:+-map 0:$sid -c:s srt "$DIRVID/.$fld.srt"}
+		${stx:+-map 0:$sid -c:s srt "$DIRVID/.$fld.srt"}
 
 	[[ $? -ne 0 ]] && logerr "Could not properly reencode streams. Skip."
 
-	[[ $sbe ]] && $SED -i 's/<\/\?font[^>]*>//g;s/\r$//' "$DIRVID/.$fld.srt"
+	[[ $stx ]] && $SED -i 's/<\/\?font[^>]*>//g;s/\r$//' "$DIRVID/.$fld.srt"
 
 	log "Streams reencoded."
 fi
@@ -92,10 +100,10 @@ fi
 if [[ ! $rcd ]]; then
 	log "Remuxing MKV file."
 
-	$MKVMRG --track-order 0:$vid${aue:+,1:0},0:$aid${sbe:+,$((sbe + aue)):0} --disable-track-statistics-tags -o "$DIRVID/.$fld.mkv" \
-		-d $vid -a $aid -S -B -M --no-chapters --no-global-tags --language $vid:$lng --default-track $vid:true --forced-track $vid:false --track-name $vid: --language $aid:$lng --default-track $aid:true --forced-track $aid:false --track-name $aid: "$DIRVID/.$fld.ori" \
+	$MKVMRG --track-order 0:$vid${aue:+,1:0},0:$aid${sbn:+,0:$sid}${stx:+,$((aue + 1)):0} --disable-track-statistics-tags -o "$DIRVID/.$fld.mkv" \
+		-d $vid -a $aid $([[ $sbn ]] && echo -s $sid || echo -S) -B -M --no-chapters --no-global-tags --language $vid:$lng --default-track $vid:true --forced-track $vid:false --track-name $vid: --language $aid:$lng --default-track $aid:true --forced-track $aid:false --track-name $aid: ${sbn:+--language $sid:fre --default-track $sid:true --forced-track $sid:$frc --track-name $sid:} "$DIRVID/.$fld.ori" \
 		${aue:+--aac-is-sbr 0:0 --sync 0:${stream_start_pts[$aid]} --language 0:$lng --default-track 0:false --forced-track 0:false "$DIRVID/.$fld.${FFMPG_EXT[$AUD]}"} \
-		${sbe:+--language 0:fre --sync 0:${stream_start_pts[$sid]} --sub-charset 0:UTF8 --default-track 0:true --forced-track 0:$frc "$DIRVID/.$fld.srt"}
+		${stx:+--language 0:fre --sync 0:${stream_start_pts[$sid]} --sub-charset 0:UTF8 --default-track 0:true --forced-track 0:$frc "$DIRVID/.$fld.srt"}
 
 	[[ $? -ne 0 ]] && logerr "Could not properly remux MKV file. Skip."
 

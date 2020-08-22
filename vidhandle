@@ -74,31 +74,28 @@ flock 3
 log "Handling file: $1"
 
 dir=all
-for f in $DIRVID/.vid.nop.*; do
+for f in $DIRVID/.vid.nop*; do
 	if [[ -f $f ]]; then
 		log "No-op handler. Do nothing."
 		
-		$RM $f
 		num=${f##*'.'}
-
+		[[ $num -gt 0 ]] && $RM $f
 		[[ $num -gt 1 ]] && $TOUCH $DIRVID/.vid.nop.$((num - 1))
+
 		exit 0
 	fi
 done
 for f in $DIRVID/.vid.kids.*; do 
-	if [[ -f $f ]]; then
+	if [[ -f $f && -z ${1##*${f##*'.'}*} ]]; then
 		log "Kids handler. Update settings."
 		
 		CFGRX="$CFGRXK"
 		dir=kids
 
 		$RM $f
-		num=${f##*'.'}
-
-		[[ $num -gt 1 ]] && $TOUCH $DIRVID/.vid.kids.$((num - 1))
 	fi
 done
-for f in $DIRVID/.vid.mov.*; do
+for f in $DIRVID/.vid.mov*; do
 	if [[ -f $f ]]; then
 		log "Mov handler. Just move, no wait."
 		
@@ -107,10 +104,10 @@ for f in $DIRVID/.vid.mov.*; do
 
 		log "File moved."
 
-		$RM $f
 		num=${f##*'.'}
-
+		[[ $num -gt 0 ]] && $RM $f
 		[[ $num -gt 1 ]] && $TOUCH $DIRVID/.vid.mov.$((num - 1))
+
 		exit 0
 	fi
 done
@@ -126,10 +123,10 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	[[ ${stream_disposition_attached_pic[$i]} == 1 ]] && continue
 
 	# Exclude some identified useless subs (e.g. SDH - Subtitles for the Deaf and Hard of hearing).
-	[[ ${stream_codec_type[$i]} == subtitle ]] && valmatch "${stream_tags_title[$i]}" sdh song songs commentary chanson chansons commentaires && continue
+	[[ ${stream_codec_type[$i]} == subtitle ]] && valmatch "${stream_tags_title[$i]}" sdh song songs commentary chanson chansons commentaires sourds malentendants && continue
 
 	# Exclude unhandled bitmap subs.
-	valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle dvd_subtitle && continue
+	#valmatch "${stream_codec_name[$i]}" pgssub dvdsub hdmv_pgs_subtitle dvd_subtitle && continue
 
 	# Restore forced subtitles.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && valmatch "${stream_tags_title[$i]}" force forced forcé forcés forces && stream_disposition_forced[$i]=1
@@ -141,7 +138,7 @@ for i in $(seq 0 $(($($FFPRB -show_entries format=nb_streams -of default=noprint
 	# Regroup esoteric language non-values.
 	valmatchstt "x${stream_tags_language[$i]}" "x" "xunknown" && stream_tags_language[$i]=und
 
-	# Additional check on subtitles file size to set forced flag. Slow down process.
+	# Additional check on text subtitles file size to set forced flag. Slow down process.
 	[[ ${stream_codec_type[$i]} == subtitle ]] && chkforced "$DIRVID/$1" $i "${stream_codec_name[$i]}" && stream_disposition_forced[$i]=1
 
 	gmd[$i]=${stream_codec_type[$i]:0:1}:${stream_tags_language[$i]}:${stream_disposition_default[$i]}:${stream_disposition_forced[$i]}
